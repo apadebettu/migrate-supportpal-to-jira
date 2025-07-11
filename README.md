@@ -1,3 +1,4 @@
+
 # 🛠️ SupportPal to Jira Migration Script
 
 This Python script automates the migration of support tickets from a **SupportPal** MySQL database to **Jira Cloud**, including messages, attachments, and ticket metadata.
@@ -13,90 +14,88 @@ This Python script automates the migration of support tickets from a **SupportPa
   * Attachments via SFTP
   * Priority mapping
 * Automatically transitions the issue to "Resolve this issue"
-* Preserves timestamps from the original ticket system
+* Preserves timestamps and user info from SupportPal
 
 ---
 
 ## 🔧 Requirements
 
 * Python 3.6+
-* SSH access to the SupportPal server for attachments
+* SSH access to the SupportPal server (for attachments)
 * A Jira Cloud account with API access
 
-### Python Libraries
-
-Install the required dependencies with:
+### Install Python Dependencies
 
 ```bash
-pip install mysql-connector-python paramiko beautifulsoup4 jira
+pip install mysql-connector-python paramiko python-dotenv sshtunnel jira beautifulsoup4
 ```
 
 ---
 
 ## 🔐 Configuration
 
-All configuration is hardcoded in the script. Modify the following sections accordingly:
+You’ll be prompted to provide a config file path when the script starts. A sample config looks like this:
 
-### MySQL Database (SupportPal)
+```ini
+[DEFAULT]
 
-```python
-mysql_conf = {
-    'host':     '127.0.0.1',
-    'port':     3307,
-    'database': 'support_pal',
-    'user':     'spal_dbuser',
-    'password': 'your-db-password',
-    'charset':  'utf8mb4',
-}
+# --- MySQL Database ---
+MYSQL_HOST = 127.0.0.1
+MYSQL_PORT = 3307
+MYSQL_DB = support_pal
+MYSQL_USER = spal_dbuser
+MYSQL_PASSWORD = your-db-password
+
+# --- SSH for Attachments ---
+SSH_HOST = your.server.ip
+SSH_PORT = 22
+SSH_USER = root
+SSH_PASSWORD = your-ssh-password
+
+# --- Jira Credentials ---
+JIRA_URL = https://your-domain.atlassian.net
+JIRA_USER = your-email@domain.com
+JIRA_API_TOKEN = your-api-token
+JIRA_PROJECT = PROJECTKEY
+JIRA_ISSUETYPE = [System] Service request
+
+# --- Attachments ---
+REMOTE_ATTACHMENT_PATH = /var/www/html/storage/app/tickets
+LOCAL_ATTACHMENTS_DIR = SupportPal to Jira/attachments
+
+# --- Priority Mapping ---
+PRIORITY_MAP_1 = Wishlist
+PRIORITY_MAP_2 = Nice To Have
+PRIORITY_MAP_3 = Must Have
+PRIORITY_MAP_4 = Must Have - Urgent
+DEFAULT_PRIORITY = Medium
 ```
 
-### SSH for Attachments
-
-```python
-ssh_conf = {
-    'hostname': 'your.server.ip',
-    'port':     22,
-    'username': 'root',
-    'password': 'your-ssh-password'
-}
-```
-
-### Jira Credentials
-
-```python
-JIRA_URL       = 'https://your-domain.atlassian.net'
-JIRA_USER      = 'your-email@domain.com'
-JIRA_API_TOKEN = 'your-api-token'
-JIRA_PROJECT   = 'PROJECTKEY'
-JIRA_ISSUETYPE = '[System] Service request'
-```
-
-> **Important:** Never commit your credentials to version control. Use environment variables or `.env` files with `python-dotenv` for better security.
+> 💡 Use environment variables or a `.env` file instead of hardcoding credentials in production.
 
 ---
 
 ## 🚀 Usage
 
-Run the script in your terminal:
-
-```bash
-python3 migrate_supportpal_to_jira.py
-```
+Run the script.
 
 You’ll be prompted to choose:
 
 ```
-Export single ticket or all tickets? Enter 1 for single, 2 for all:
+Enter path to config file [/default/path/to/config.ini]:
+Migrate single ticket or all tickets?
+  1) Single ticket
+  2) All tickets
+Download attachments over SFTP?
+  1) Yes
+  2) No
 ```
-
-* **1**: Enter a specific SupportPal ticket number.
-* **2**: Export all tickets from the database.
 
 ---
 
 ## 📂 Attachments Handling
 
-Attachments are pulled from a remote server via **SFTP** and uploaded to Jira.
+Attachments are downloaded from the SupportPal server via **SFTP** and uploaded to the corresponding Jira issue.
 
 They are temporarily stored in:
 
@@ -104,56 +103,64 @@ They are temporarily stored in:
 SupportPal to Jira/attachments/
 ```
 
-Make sure the SSH user has access to the SupportPal storage path:
+Make sure the SSH user has access to:
 
-```python
-remote_attachment_path = "/var/www/html/storage/app/tickets"
+```
+/var/www/html/storage/app/tickets
 ```
 
 ---
 
 ## 🗂️ Priority Mapping
 
-SupportPal → Jira Priority mapping:
+| SupportPal ID | Jira Priority        |
+|---------------|----------------------|
+| 1             | Wishlist             |
+| 2             | Nice To Have         |
+| 3             | Must Have            |
+| 4             | Must Have - Urgent   |
 
-| SupportPal ID | Jira Priority      |
-| ------------- | ------------------ |
-| 1             | Wishlist           |
-| 2             | Nice To Have       |
-| 3             | Must Have          |
-| 4             | Must Have - Urgent |
+If a priority is missing, it falls back to `Medium`.
 
 ---
 
 ## 📘 Sample Output
 
 ```
-Found 4 ticket(s) to export.
-Creating issue for SupportPal #1532...
-✅ Created QSD-214 with priority 'Must Have'
-→ Forced transition to 'Resolve this issue'
-→ Set Jira created/updated to 2024-11-17T10:34:22
-→ Added 3 comments.
-→ Uploaded attachment: screenshot.png
-...
-✅ Done importing tickets.
+✅ Successfully connected to MySQL.
+Found 2 ticket(s).
+Created Jira issue QSD-154 (prio: Must Have)
+Resolved QSD-154
+→ Added 4 comments
+→ Uploaded attachment: error_log.txt
+
+Created Jira issue QSD-155 (prio: Nice To Have)
+Resolved QSD-155
+→ Added 2 comments
+→ No attachments found
+
+✅ Migration complete.
 ```
 
 ---
 
 ## 🧹 Cleanup
 
-* Closes MySQL connection
-* Closes SSH and SFTP sessions
+At the end of the migration:
+
+* MySQL connections are closed
+* SSH/SFTP sessions are properly shut down
+* SSH tunnel is terminated
 
 ---
 
 ## ⚠️ Security Warning
 
-This script contains **hardcoded secrets** for demonstration. In production:
+This script requires credentials to access your systems.
 
-* Use `.env` or secret manager
-* Never commit sensitive credentials
-* Limit permissions of SSH and DB users
+**Recommendations:**
 
----
+* Never commit `.ini` or `.env` files to source control
+* Use `.gitignore` to exclude sensitive files
+* Use limited-scope SSH and database users
+* Consider rotating Jira API tokens regularly
