@@ -1,30 +1,23 @@
+# 🛠️ SupportPal to Jira Cloud Migration Guide (Step-by-Step)
 
-# 🛠️ SupportPal to Jira Migration Script
-
-This Python script automates the migration of support tickets from a **SupportPal** MySQL database to **Jira Cloud**, including messages, attachments, and ticket metadata.
-
----
-
-## 📦 Features
-
-* Export either a **single ticket** or **all tickets** from SupportPal.
-* Creates corresponding Jira issues with:
-  * Original ticket subject and creation date
-  * Full message history as comments
-  * Attachments via SFTP
-  * Priority mapping
-* Automatically transitions the issue to "Resolve this issue"
-* Preserves timestamps and user info from SupportPal
+This guide walks you through migrating tickets from a **SupportPal MySQL** server to **Jira Cloud**. You’ll gather database info, configure the script, and run the migration, including messages and attachments.
 
 ---
 
-## 🔧 Requirements
+## ✅ 1. Prepare Your Environment
 
-* Python 3.6+
-* SSH access to the SupportPal server (for attachments)
-* A Jira Cloud account with API access
+### 🔽 Step 1.1: Clone or Download the Script
 
-### Install Python Dependencies
+```bash
+git clone https://github.com/your-repo/supportpal-to-jira.git
+cd supportpal-to-jira
+```
+
+---
+
+### 💡 Step 1.2: Install Python Requirements
+
+Install these on **your local machine**:
 
 ```bash
 pip install mysql-connector-python paramiko python-dotenv sshtunnel jira beautifulsoup4
@@ -32,9 +25,59 @@ pip install mysql-connector-python paramiko python-dotenv sshtunnel jira beautif
 
 ---
 
-## 🔐 Configuration
+## 🔍 2. Get Database & SSH Access Details
 
-You’ll be prompted to provide a config file path when the script starts. A sample config looks like this:
+SSH into your **SupportPal server** to collect DB credentials and the attachment path.
+
+### 🔐 Step 2.1: SSH Into Server
+
+```bash
+ssh root@your.server.ip
+```
+
+### 🧾 Step 2.2: Find Database Credentials
+
+Check the SupportPal config file (commonly located here):
+
+```bash
+cat /var/www/html/config/database.php
+```
+
+Look for values like:
+
+```php
+'mysql' => [
+    'host' => '127.0.0.1',
+    'database' => 'supportpal',
+    'username' => 'spal_dbuser',
+    'password' => 'your-db-password',
+    ...
+]
+```
+
+> 📌 **Copy these values down** – you'll need them for the config file later.
+
+---
+
+### 🧱 Step 2.3: Find Attachments Directory
+
+The default is usually:
+
+```
+/var/www/html/storage/app/tickets
+```
+
+You can confirm with:
+
+```bash
+ls -l /var/www/html/storage/app/tickets
+```
+
+---
+
+## 🗄️ 3. Create the Config File
+
+Back on **your local machine**, create a file called `config.ini`:
 
 ```ini
 [DEFAULT]
@@ -42,7 +85,7 @@ You’ll be prompted to provide a config file path when the script starts. A sam
 # --- MySQL Database ---
 MYSQL_HOST = 127.0.0.1
 MYSQL_PORT = 3307
-MYSQL_DB = support_pal
+MYSQL_DB = supportpal
 MYSQL_USER = spal_dbuser
 MYSQL_PASSWORD = your-db-password
 
@@ -71,96 +114,106 @@ PRIORITY_MAP_4 = Must Have - Urgent
 DEFAULT_PRIORITY = Medium
 ```
 
-> 💡 Use environment variables or a `.env` file instead of hardcoding credentials in production.
+> 🔒 **Important**: Add `config.ini` to `.gitignore` to avoid leaking credentials.
 
 ---
 
-## 🚀 Usage
+## 🔐 4. SSH Tunnel Setup (Handled by Script)
 
-Run the script.
+The script will automatically:
 
-You’ll be prompted to choose:
+- Open an SSH tunnel
+- Forward local port `3307` → remote `3306` (MySQL)
+- Connect to the DB through `127.0.0.1:3307`
+
+No extra setup is needed by you — just ensure the credentials and ports are correct.
+
+---
+
+## 🚀 5. Run the Migration Script
+
+```bash
+python migrate.py
+```
+
+You’ll be prompted:
 
 ```
 Enter path to config file [/default/path/to/config.ini]:
+> config.ini
+
 Migrate single ticket or all tickets?
   1) Single ticket
   2) All tickets
+> 2
+
 Download attachments over SFTP?
   1) Yes
   2) No
+> 1
 ```
 
 ---
 
-## 📂 Attachments Handling
+## 📥 6. What the Script Does
 
-Attachments are downloaded from the SupportPal server via **SFTP** and uploaded to the corresponding Jira issue.
+For each ticket:
 
-They are temporarily stored in:
+1. Creates a Jira issue with:
+   - Subject
+   - Created date
+   - Comments for each message
+   - Internal notes as comments (optional)
+2. Downloads attachments via SFTP
+3. Uploads files to the Jira issue
+4. Sets mapped priority
+5. Transitions the issue to “Resolve this issue”
 
-```
+---
+
+## 📂 7. Where Attachments Go
+
+Attachments are temporarily saved to:
+
+```bash
 SupportPal to Jira/attachments/
 ```
 
-Make sure the SSH user has access to:
-
-```
-/var/www/html/storage/app/tickets
-```
+> ✅ You can safely delete this folder after migration.
 
 ---
 
-## 🗂️ Priority Mapping
-
-| SupportPal ID | Jira Priority        |
-|---------------|----------------------|
-| 1             | Wishlist             |
-| 2             | Nice To Have         |
-| 3             | Must Have            |
-| 4             | Must Have - Urgent   |
-
-If a priority is missing, it falls back to `Medium`.
-
----
-
-## 📘 Sample Output
+## 🧪 8. Sample Output
 
 ```
 ✅ Successfully connected to MySQL.
-Found 2 ticket(s).
-Created Jira issue QSD-154 (prio: Must Have)
-Resolved QSD-154
-→ Added 4 comments
-→ Uploaded attachment: error_log.txt
+Found 3 ticket(s).
+Created Jira issue QSD-101 (prio: Must Have)
+→ Added 5 comments
+→ Uploaded 2 attachments
 
-Created Jira issue QSD-155 (prio: Nice To Have)
-Resolved QSD-155
-→ Added 2 comments
+Created Jira issue QSD-102 (prio: Nice To Have)
 → No attachments found
 
+Resolved QSD-101, QSD-102
 ✅ Migration complete.
 ```
 
 ---
 
-## 🧹 Cleanup
+## 🧹 9. After Migration
 
-At the end of the migration:
+The script handles cleanup:
 
-* MySQL connections are closed
-* SSH/SFTP sessions are properly shut down
-* SSH tunnel is terminated
+- MySQL connection closed
+- SSH/SFTP sessions closed
+- SSH tunnel shut down
 
 ---
 
-## ⚠️ Security Warning
+## 🛡️ 10. Security Checklist
 
-This script requires credentials to access your systems.
-
-**Recommendations:**
-
-* Never commit `.ini` or `.env` files to source control
-* Use `.gitignore` to exclude sensitive files
-* Use limited-scope SSH and database users
-* Consider rotating Jira API tokens regularly
+✔ Do NOT commit `config.ini` or `.env`  
+✔ Use `.gitignore`  
+✔ Use **limited-scope DB and SSH users**  
+✔ Rotate Jira API token regularly
