@@ -1,6 +1,6 @@
 # 🛠️ SupportPal to Jira Cloud Migration Guide (Step-by-Step)
 
-This guide walks you through migrating tickets from a **SupportPal MySQL** server to **Jira Cloud**. You’ll gather database info, configure the script, and run the migration, including messages and attachments.
+This guide walks you through migrating tickets from a **SupportPal MySQL** server to **Jira Cloud**. You have to gather database info, configure the script, and run the migration, including messages and attachments.
 
 ---
 
