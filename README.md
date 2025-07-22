@@ -1,4 +1,4 @@
-# 🛠️ SupportPal to Jira Cloud Migration Guide (Step-by-Step)
+# 🛠️ SupportPal to Jira Cloud Migration Guide
 
 This guide walks you through migrating tickets from a **SupportPal MySQL** server to **Jira Cloud**. You have to gather database info, configure the script, and run the migration, including messages and attachments.
 
@@ -55,7 +55,7 @@ Look for values like:
 ]
 ```
 
-> 📌 **Copy these values down** – you'll need them for the config file later.
+> 📌 **Copy these values down.**
 
 ---
 
@@ -126,7 +126,7 @@ The script will automatically:
 - Forward local port `3307` → remote `3306` (MySQL)
 - Connect to the DB through `127.0.0.1:3307`
 
-No extra setup is needed by you — just ensure the credentials and ports are correct.
+No extra setup is needed, just ensure the credentials and ports are correct.
 
 ---
 
