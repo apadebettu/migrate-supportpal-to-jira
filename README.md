@@ -11,7 +11,7 @@ This guide walks you through migrating tickets from a **SupportPal MySQL** serve
 ```bash
 git clone https://github.com/your-repo/supportpal-to-jira.git
 cd supportpal-to-jira
-```
+````
 
 ---
 
@@ -20,9 +20,8 @@ cd supportpal-to-jira
 Install these on **your local machine**:
 
 ```bash
-pip install mysql-connector-python paramiko python-dotenv sshtunnel jira beautifulsoup4
+pip install mysql-connector-python paramiko python-dotenv sshtunnel jira beautifulsoup4 tqdm requests pytz PyJWT
 ```
-
 ---
 
 ## 🔍 2. Get Database & SSH Access Details
@@ -88,6 +87,7 @@ MYSQL_PORT = 3307
 MYSQL_DB = supportpal
 MYSQL_USER = spal_dbuser
 MYSQL_PASSWORD = your-db-password
+MYSQL_CHARSET = utf8mb4
 
 # --- SSH for Attachments ---
 SSH_HOST = your.server.ip
@@ -101,10 +101,13 @@ JIRA_USER = your-email@domain.com
 JIRA_API_TOKEN = your-api-token
 JIRA_PROJECT = PROJECTKEY
 JIRA_ISSUETYPE = [System] Service request
+DONE_TRANSITION_ID = 761
 
 # --- Attachments ---
 REMOTE_ATTACHMENT_PATH = /var/www/html/storage/app/tickets
 LOCAL_ATTACHMENTS_DIR = SupportPal to Jira/attachments
+OLD_SUPPORTPAL_URL = https://support.example.com
+NEW_SUPPORTPAL_URL = https://internal.example.com
 
 # --- Priority Mapping ---
 PRIORITY_MAP_1 = Wishlist
@@ -122,9 +125,9 @@ DEFAULT_PRIORITY = Medium
 
 The script will automatically:
 
-- Open an SSH tunnel
-- Forward local port `3307` → remote `3306` (MySQL)
-- Connect to the DB through `127.0.0.1:3307`
+* Open an SSH tunnel (if configured)
+* Forward local port `3307` → remote `3306` (MySQL)
+* Connect to the DB through `127.0.0.1:3307`
 
 No extra setup is needed, just ensure the credentials and ports are correct.
 
@@ -133,7 +136,7 @@ No extra setup is needed, just ensure the credentials and ports are correct.
 ## 🚀 5. Run the Migration Script
 
 ```bash
-python migrate.py
+python supportpal_to_jira.py
 ```
 
 You’ll be prompted:
@@ -160,14 +163,15 @@ Download attachments over SFTP?
 For each ticket:
 
 1. Creates a Jira issue with:
-   - Subject
-   - Created date
-   - Comments for each message
-   - Internal notes as comments (optional)
-2. Downloads attachments via SFTP
-3. Uploads files to the Jira issue
+
+   * Subject
+   * Created date
+   * Comments for each message
+   * Internal notes as comments (in Jira panel formatting)
+2. Downloads attachments (inline via HTTP and optionally regular files via SFTP)
+3. Uploads files to the Jira issue concurrently
 4. Sets mapped priority
-5. Transitions the issue to “Resolve this issue”
+5. Transitions the issue to the “Done” status
 
 ---
 
@@ -186,16 +190,11 @@ SupportPal to Jira/attachments/
 ## 🧪 8. Sample Output
 
 ```
-✅ Successfully connected to MySQL.
-Found 3 ticket(s).
-Created Jira issue QSD-101 (prio: Must Have)
-→ Added 5 comments
-→ Uploaded 2 attachments
-
-Created Jira issue QSD-102 (prio: Nice To Have)
-→ No attachments found
-
-Resolved QSD-101, QSD-102
+✅ MySQL pool ready @ 127.0.0.1:3307/supportpal
+Found 3 ticket(s) to migrate.
+📥 Downloaded inline image screenshot.png
+✅ Uploaded screenshot.png
+Created and transitioned ITA-101 for ticket 12345
 ✅ Migration complete.
 ```
 
@@ -205,15 +204,18 @@ Resolved QSD-101, QSD-102
 
 The script handles cleanup:
 
-- MySQL connection closed
-- SSH/SFTP sessions closed
-- SSH tunnel shut down
+* MySQL connection pool closed
+* SSH/SFTP sessions closed
+* SSH tunnel shut down
 
 ---
 
 ## 🛡️ 10. Security Checklist
 
 ✔ Do NOT commit `config.ini` or `.env`  
+
 ✔ Use `.gitignore`  
+
 ✔ Use **limited-scope DB and SSH users**  
-✔ Rotate Jira API token regularly
+
+✔ Rotate Jira API token regularly 
